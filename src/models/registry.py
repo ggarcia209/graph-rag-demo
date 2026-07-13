@@ -6,7 +6,7 @@ enabling configuration-driven model selection at startup.
 
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any, ClassVar
 
 from src.models.base import (
     BaseEmbeddingModel,
@@ -16,7 +16,7 @@ from src.models.base import (
 )
 
 # Map model type names to their abstract base class for validation.
-_MODEL_TYPE_MAP: dict[str, Type] = {
+_MODEL_TYPE_MAP: dict[str, type] = {
     "embedding": BaseEmbeddingModel,
     "vlm": BaseVisionLanguageModel,
     "reranker": BaseReranker,
@@ -33,10 +33,10 @@ class ModelRegistry:
         model = ModelRegistry.create("embedding", "llama_cpp", base_url="http://localhost:8081/v1")
     """
 
-    _registry: dict[tuple[str, str], Type] = {}
+    _registry: ClassVar[dict[tuple[str, str], type]] = {}
 
     @classmethod
-    def register(cls, model_type: str, provider: str, model_cls: Type) -> None:
+    def register(cls, model_type: str, provider: str, model_cls: type) -> None:
         """Register a concrete model class for a (model_type, provider) pair.
 
         Args:

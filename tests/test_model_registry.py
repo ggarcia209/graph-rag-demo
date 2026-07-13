@@ -1,7 +1,5 @@
 """Tests for the model abstraction layer — base classes and registry."""
 
-from __future__ import annotations
-
 import pytest
 
 from src.models.base import (
@@ -11,7 +9,6 @@ from src.models.base import (
     BaseVisionLanguageModel,
 )
 from src.models.registry import ModelRegistry
-
 
 # ---------------------------------------------------------------------------
 # Concrete test doubles (minimal implementations for testing)

@@ -8,8 +8,10 @@ dicts conforming to the loaded OntologySchema.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from src.schema.models import OntologySchema
+if TYPE_CHECKING:
+    from src.schema.models import OntologySchema
 
 
 class BaseIngestor(ABC):

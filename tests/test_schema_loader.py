@@ -1,12 +1,10 @@
 """Tests for the ontology schema loader and Pydantic models."""
 
-from __future__ import annotations
-
 import os
-import tempfile
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from src.schema.loader import load_schema
 from src.schema.models import (
@@ -16,7 +14,6 @@ from src.schema.models import (
     PropertyDefinition,
     TraversalPattern,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -149,11 +146,11 @@ class TestEdgeTypeDefinition:
         assert edge.properties == {}
 
     def test_missing_source_raises(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             EdgeTypeDefinition(target="Company")  # type: ignore[call-arg]
 
     def test_missing_target_raises(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             EdgeTypeDefinition(source="Person")  # type: ignore[call-arg]
 
 
@@ -173,7 +170,7 @@ class TestTraversalPattern:
         assert tp.pattern == "(a:Event)-[:CAUSES]->(b:Event)"
 
     def test_missing_pattern_raises(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             TraversalPattern(description="No pattern")  # type: ignore[call-arg]
 
 
@@ -207,13 +204,13 @@ class TestOntologySchema:
     def test_missing_name_raises(self) -> None:
         data = {**MINIMAL_SCHEMA}
         del data["name"]
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OntologySchema.model_validate(data)
 
     def test_missing_graph_name_raises(self) -> None:
         data = {**MINIMAL_SCHEMA}
         del data["graph_name"]
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OntologySchema.model_validate(data)
 
 

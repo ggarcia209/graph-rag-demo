@@ -1,5 +1,7 @@
 from falkordb import FalkorDB
+
 from src.config import settings
+
 
 def get_graph_client():
     """
@@ -10,6 +12,6 @@ def get_graph_client():
         port=settings.falkordb_port,
         password=settings.falkordb_password
     )
-    # The Knowledge Graph Schema specified "GDELT Events × Equity Markets"
+    # The Knowledge Graph Schema specified "GDELT Events x Equity Markets"
     # We will name our graph 'gdelt_markets'
     return client.select_graph("gdelt_markets")
