@@ -7,3 +7,32 @@ def test_imports():
     from src.generation.generator import ResponseGenerator
     from src.pipeline import GraphRAGPipeline
     assert True
+
+
+def test_schema_imports():
+    from src.schema import (
+        OntologySchema,
+        NodeTypeDefinition,
+        EdgeTypeDefinition,
+        PropertyDefinition,
+        TraversalPattern,
+        load_schema,
+    )
+    assert True
+
+
+def test_models_imports():
+    from src.models import (
+        BaseEmbeddingModel,
+        BaseVisionLanguageModel,
+        BaseReranker,
+        BaseGenerationModel,
+        ModelRegistry,
+    )
+    assert True
+
+
+def test_ingestion_imports():
+    from src.ingestion import BaseIngestor
+    assert True
+

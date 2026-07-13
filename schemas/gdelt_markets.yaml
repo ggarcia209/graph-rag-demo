@@ -1,0 +1,277 @@
+# GDELT Events × Equity Markets schema
+# Machine-readable representation of knowledge_graph_schema.md
+
+name: gdelt_markets
+version: "1.0"
+description: "GDELT Events × Equity Markets — connects geopolitical events to time-series equity and commodity price data for causal reasoning."
+graph_name: gdelt_markets
+
+node_types:
+  Event:
+    description: "A discrete geopolitical, economic, or corporate occurrence sourced primarily from GDELT."
+    properties:
+      id: {type: string, required: true}
+      gdelt_event_id: {type: string}
+      event_code: {type: string}
+      event_root_code: {type: string}
+      description: {type: string, embeddable: true}
+      goldstein_scale: {type: float}
+      avg_tone: {type: float}
+      num_mentions: {type: int}
+      num_sources: {type: int}
+      event_date: {type: datetime}
+      date_added: {type: datetime}
+      source_urls: {type: "[]string"}
+      themes: {type: "[]string"}
+      embedding: {type: "[]float"}
+
+  Organization:
+    description: "A company, government body, NGO, or other institutional entity."
+    properties:
+      id: {type: string, required: true}
+      name: {type: string, required: true}
+      aliases: {type: "[]string"}
+      type: {type: enum, values: [CORPORATION, GOVERNMENT, NGO, MULTILATERAL, STATE_OWNED]}
+      ticker: {type: string}
+      exchange: {type: string}
+      sector: {type: string}
+      industry: {type: string}
+      country: {type: string}
+      description: {type: string, embeddable: true}
+      market_cap: {type: float}
+      embedding: {type: "[]float"}
+
+  Individual:
+    description: "A named person — political leader, executive, central banker, etc."
+    properties:
+      id: {type: string, required: true}
+      name: {type: string, required: true}
+      aliases: {type: "[]string"}
+      role: {type: string}
+      affiliated_org_id: {type: string}
+      country: {type: string}
+      description: {type: string, embeddable: true}
+      embedding: {type: "[]float"}
+
+  Market:
+    description: "A tradeable financial instrument or index with associated time-series price data."
+    properties:
+      id: {type: string, required: true}
+      symbol: {type: string, required: true}
+      name: {type: string, required: true}
+      asset_type: {type: enum, values: [EQUITY, COMMODITY, INDEX, ETF, CURRENCY, BOND]}
+      exchange: {type: string}
+      sector: {type: string}
+      industry: {type: string}
+      currency: {type: string}
+      description: {type: string, embeddable: true}
+      embedding: {type: "[]float"}
+
+  Commodity:
+    description: "A physical commodity class that acts as a transmission channel between events and markets."
+    properties:
+      id: {type: string, required: true}
+      name: {type: string, required: true}
+      category: {type: enum, values: [ENERGY, METAL, AGRICULTURAL, INDUSTRIAL]}
+      benchmark_market_id: {type: string}
+      description: {type: string, embeddable: true}
+      embedding: {type: "[]float"}
+
+  Region:
+    description: "A geographic area — country, sub-national region, or supranational bloc."
+    properties:
+      id: {type: string, required: true}
+      name: {type: string, required: true}
+      geo_type: {type: enum, values: [COUNTRY, SUB_NATIONAL, SUPRANATIONAL, WATERWAY, REGION]}
+      country_code: {type: string}
+      fips_code: {type: string}
+      latitude: {type: float}
+      longitude: {type: float}
+      description: {type: string, embeddable: true}
+      embedding: {type: "[]float"}
+
+edge_types:
+  # Event <-> Event
+  CAUSES:
+    source: Event
+    target: Event
+    description: "Direct causal link between events."
+    properties:
+      lag_hours: {type: float}
+      causal_strength: {type: float}
+      mechanism: {type: string}
+      confidence: {type: float}
+      evidence: {type: string}
+      source: {type: enum, values: [GDELT, NLP_EXTRACTED, MARKET_DATA, MANUAL, STATISTICAL]}
+
+  ESCALATES_TO:
+    source: Event
+    target: Event
+    description: "Escalation in a chain of events."
+    properties:
+      confidence: {type: float}
+      evidence: {type: string}
+
+  PRECEDES:
+    source: Event
+    target: Event
+    description: "Temporal precedence (weaker than causal)."
+    properties:
+      confidence: {type: float}
+      evidence: {type: string}
+
+  # Event <-> Organization
+  INVOLVES:
+    source: Event
+    target: Organization
+    description: "Organization is a participant/actor in the event."
+    properties:
+      actor_role: {type: enum, values: [ACTOR1, ACTOR2, MENTIONED, AFFECTED]}
+      confidence: {type: float}
+      evidence: {type: string}
+
+  AFFECTS:
+    source: Event
+    target: Organization
+    description: "Event has a material impact on the organization."
+    properties:
+      impact_direction: {type: enum, values: [POSITIVE, NEGATIVE, NEUTRAL]}
+      impact_magnitude: {type: float}
+      confidence: {type: float}
+      evidence: {type: string}
+
+  # Event <-> Region
+  OCCURRED_IN:
+    source: Event
+    target: Region
+    description: "Where the event took place."
+    properties:
+      confidence: {type: float}
+      evidence: {type: string}
+
+  # Event <-> Commodity
+  DISRUPTS_SUPPLY:
+    source: Event
+    target: Commodity
+    description: "Event disrupts supply of a commodity."
+    properties:
+      price_impact_direction: {type: enum, values: [UP, DOWN, VOLATILE]}
+      supply_chain_stage: {type: enum, values: [PRODUCTION, TRANSPORT, REFINING, DISTRIBUTION]}
+      confidence: {type: float}
+      evidence: {type: string}
+
+  AFFECTS_PRICE:
+    source: Event
+    target: Commodity
+    description: "General price impact."
+    properties:
+      price_impact_direction: {type: enum, values: [UP, DOWN, VOLATILE]}
+      confidence: {type: float}
+      evidence: {type: string}
+
+  # Organization <-> Market
+  LISTED_AS:
+    source: Organization
+    target: Market
+    description: "Organization is listed as this tradeable asset."
+    properties:
+      confidence: {type: float}
+
+  COMPONENT_OF:
+    source: Organization
+    target: Market
+    description: "Organization is a component of an index."
+    properties:
+      confidence: {type: float}
+
+  # Organization <-> Organization
+  SUPPLIES_TO:
+    source: Organization
+    target: Organization
+    description: "Supply chain relationship."
+    properties:
+      confidence: {type: float}
+      evidence: {type: string}
+
+  COMPETES_WITH:
+    source: Organization
+    target: Organization
+    description: "Competitive relationship."
+    properties:
+      confidence: {type: float}
+
+  # Organization <-> Commodity
+  PRODUCES:
+    source: Organization
+    target: Commodity
+    description: "Organization produces/extracts this commodity."
+    properties:
+      revenue_exposure_pct: {type: float}
+      confidence: {type: float}
+
+  CONSUMES:
+    source: Organization
+    target: Commodity
+    description: "Organization is a major consumer/buyer."
+    properties:
+      cost_exposure_pct: {type: float}
+      confidence: {type: float}
+
+  # Organization <-> Region
+  HEADQUARTERED_IN:
+    source: Organization
+    target: Region
+    description: "Where the organization is based."
+    properties:
+      confidence: {type: float}
+
+  OPERATES_IN:
+    source: Organization
+    target: Region
+    description: "Regions where the organization has operations."
+    properties:
+      confidence: {type: float}
+
+  # Commodity <-> Market
+  PRICED_BY:
+    source: Commodity
+    target: Market
+    description: "Market instrument is the benchmark price for this commodity."
+    properties:
+      confidence: {type: float}
+
+  # Individual <-> Organization
+  LEADS:
+    source: Individual
+    target: Organization
+    description: "Person is an executive/leader."
+    properties:
+      confidence: {type: float}
+
+  REPRESENTS:
+    source: Individual
+    target: Organization
+    description: "Person officially represents the organization."
+    properties:
+      confidence: {type: float}
+
+traversal_patterns:
+  event_commodity_impact:
+    description: "Trace event -> commodity supply disruption -> price impact"
+    pattern: "(e:Event)-[:DISRUPTS_SUPPLY]->(c:Commodity)-[:PRICED_BY]->(m:Market)"
+
+  event_org_market_impact:
+    description: "Trace event -> affected organization -> listed market asset"
+    pattern: "(e:Event)-[:AFFECTS]->(o:Organization)-[:LISTED_AS]->(m:Market)"
+
+  full_causal_chain:
+    description: "Trace event -> commodity -> consuming organization -> market impact"
+    pattern: "(e:Event)-[:DISRUPTS_SUPPLY]->(c:Commodity)<-[:CONSUMES]-(o:Organization)-[:LISTED_AS]->(m:Market)"
+
+  supply_chain_exposure:
+    description: "Find organizations exposed via supply chain"
+    pattern: "(o1:Organization)-[:SUPPLIES_TO]->(o2:Organization)-[:LISTED_AS]->(m:Market)"
+
+  regional_event_impact:
+    description: "Trace event in region -> commodity produced in region -> market"
+    pattern: "(e:Event)-[:OCCURRED_IN]->(r:Region)<-[:HEADQUARTERED_IN]-(o:Organization)-[:LISTED_AS]->(m:Market)"
