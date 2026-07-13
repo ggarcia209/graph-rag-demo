@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "graph-rag-demo"
+version = "0.1.0"
+description = "Demo graph RAG pipeline with FalkorDB and Langchain"
+authors = ["Gilberto Garcia <ggarcia209@example.com>"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+langchain = "^0.2.0"
+langchain-community = "^0.2.0"
+falkordb = "^1.0.0"
+pydantic = "^2.0.0"
+pydantic-settings = "^2.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
