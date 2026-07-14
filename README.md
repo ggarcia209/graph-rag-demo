@@ -9,6 +9,7 @@ A modular, schema-driven Retrieval-Augmented Generation (RAG) pipeline that comb
 - **Dual Ingestion Pathways** — Ingest data from raw text or documents (PDFs, images). Documents are processed through a Vision-Language Model for text extraction before entering the shared embedding pipeline.
 - **Hybrid Retrieval** — Combines vector similarity search (for semantic entry points) with graph traversal (for structured, multi-hop reasoning) and re-ranking (for precision).
 - **Graph-Grounded Generation** — LLM responses are grounded in evidence text extracted from graph edges, reducing hallucination.
+- **MCP Server (Agentic RAG)** — Exposes the retrieval pipeline as [Model Context Protocol](https://modelcontextprotocol.io) tools. AI agents query the knowledge graph and receive re-ranked results directly — the generation step is skipped so agents can synthesize their own responses. Supports both `stdio` and `http` transports.
 
 ## Tech Stack
 
@@ -19,6 +20,7 @@ A modular, schema-driven Retrieval-Augmented Generation (RAG) pipeline that comb
 | Graph Database | FalkorDB (with built-in vector search) |
 | LLM Framework | Langchain (prompt templating and chain composition) |
 | Local Inference | llama.cpp (`llama-server`) |
+| MCP Server | FastMCP (Model Context Protocol) |
 | Schema Definition | YAML + Pydantic validation |
 
 ---
@@ -30,6 +32,13 @@ graph TB
     subgraph UserLayer["User Layer"]
         Q["User Query"]
         R["Response"]
+    end
+
+    subgraph MCPLayer["MCP Server Layer (Agentic RAG)"]
+        MCP["FastMCP Server"]
+        MT1["retrieve"]
+        MT2["list_schemas"]
+        MT3["get_schema_info"]
     end
 
     subgraph PipelineCore["Pipeline Core"]
@@ -88,6 +97,11 @@ graph TB
     PT --> S
     P --> R
 
+    MCP --> MT1 & MT2 & MT3
+    MT1 -->|retrieval only| HR
+    MT2 --> SL
+    MT3 --> SL
+
     DI -->|file| VLM
     VLM -->|extracted text| DI
     DI -->|text| TI
@@ -109,6 +123,8 @@ graph TB
 ```
 
 > The pipeline loads a YAML ontology schema at startup. The schema drives query generation, prompt construction, ingestion validation, and retrieval behavior. All model calls are routed through abstract interfaces, with `llama-server` instances providing local inference.
+>
+> **Agentic RAG path:** The MCP Server exposes `retrieve`, `list_schemas`, and `get_schema_info` as MCP tools. Agents connect via `stdio` or `http`, query the knowledge graph, and receive re-ranked results directly — the generation step is skipped.
 
 ---
 
@@ -180,6 +196,53 @@ sequenceDiagram
     Schema-->>Writer: validation_result
     Writer->>FDB: Cypher CREATE/MERGE
     FDB-->>Writer: confirmation
+```
+
+### Agentic RAG Pipeline (MCP)
+
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent
+    participant MCP as MCP Server
+    participant Schema as Schema Loader
+    participant Retriever as HybridRetriever
+    participant Embedder as EmbeddingModel
+    participant FDB as FalkorDB
+    participant Reranker as RerankerModel
+
+    Note over Agent,MCP: Agent connects via stdio or http
+
+    Agent->>MCP: list_schemas()
+    MCP->>Schema: scan schemas/ directory
+    Schema-->>MCP: available schemas[]
+    MCP-->>Agent: schema names[]
+
+    Agent->>MCP: get_schema_info(schema_name)
+    MCP->>Schema: load_schema(path)
+    Schema-->>MCP: OntologySchema
+    MCP-->>Agent: SchemaInfo (node types, edge types, patterns)
+
+    Agent->>MCP: retrieve(query, schema_name, top_k)
+    MCP->>Retriever: retrieve(query)
+
+    Retriever->>Embedder: embed_query(query)
+    Embedder-->>Retriever: query_vector
+
+    Retriever->>FDB: Vector similarity search
+    FDB-->>Retriever: candidate_nodes[]
+
+    Retriever->>FDB: Graph traversal from entry nodes
+    FDB-->>Retriever: subgraph + edge evidence[]
+
+    Retriever->>Reranker: rerank(query, evidence_texts)
+    Reranker-->>Retriever: ranked_evidence[]
+
+    Retriever-->>MCP: ranked results[]
+
+    Note over MCP: Generation step SKIPPED
+
+    MCP-->>Agent: RetrievalResult[] (structured evidence)
+    Note over Agent: Agent synthesizes response using its own LLM
 ```
 
 ---
@@ -306,6 +369,46 @@ The `ResponseGenerator` assembles retrieved context into a structured prompt and
 
 ---
 
+### MCP Server Layer (`src/mcp_server/`)
+
+The MCP server exposes the retrieval pipeline as [Model Context Protocol](https://modelcontextprotocol.io) tools for AI agent integration. Agents connect via `stdio` (local) or `http` (remote) and receive structured, re-ranked evidence — **the generation step is intentionally skipped** so the agent's own LLM can synthesize responses.
+
+**Available tools:**
+
+| Tool | Args | Returns | Description |
+|:---|:---|:---|:---|
+| `retrieve` | `query`, `schema_name`, `top_k` | `RetrievalResult[]` | Full hybrid retrieval: embed → vector search → graph traverse → re-rank |
+| `list_schemas` | — | `str[]` | Enumerate available ontology YAML schemas |
+| `get_schema_info` | `schema_name` | `SchemaInfo` | Node types, edge types, and traversal patterns for a schema |
+
+**Transport modes:**
+
+```bash
+# stdio (default) — for local agent integration
+python -m src.mcp_server
+
+# HTTP — for remote agents
+python -m src.mcp_server --transport http --port 8090
+```
+
+**Agent integration example** (MCP config):
+
+```json
+{
+  "mcpServers": {
+    "graph-rag": {
+      "command": "poetry",
+      "args": ["run", "python", "-m", "src.mcp_server"],
+      "env": {
+        "SCHEMAS_DIR": "/path/to/schemas"
+      }
+    }
+  }
+}
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -339,13 +442,19 @@ graph-rag-demo/
 │   ├── graph/                        # Graph database layer
 │   │   ├── client.py                 # FalkorDB connection (schema-driven)
 │   │   └── queries.py                # Dynamic Cypher query builder
-│   └── generation/                   # Generation layer
-│       ├── prompts.py                # Schema-aware prompt templates
-│       └── generator.py              # LLM response generation
+│   ├── generation/                   # Generation layer
+│   │   ├── prompts.py                # Schema-aware prompt templates
+│   │   └── generator.py              # LLM response generation
+│   └── mcp_server/                   # MCP server layer (agentic RAG)
+│       ├── __init__.py               # Package init, exports create_mcp_server
+│       ├── server.py                 # FastMCP server with retrieve/list/info tools
+│       ├── models.py                 # Pydantic response models (RetrievalResult, SchemaInfo)
+│       └── __main__.py               # CLI entry point (stdio + http)
 ├── tests/
 │   ├── test_imports.py
 │   ├── test_schema_loader.py
 │   ├── test_model_registry.py
+│   ├── test_mcp_server.py
 │   └── test_ingestion.py
 ├── main.py                           # CLI entry point
 ├── pyproject.toml                    # Poetry project configuration
@@ -383,6 +492,12 @@ RERANKER_BASE_URL=http://localhost:8083/v1
 # Generation Model (llama-server)
 GENERATION_PROVIDER=llama_cpp
 GENERATION_BASE_URL=http://localhost:8084/v1
+
+# MCP Server
+SCHEMAS_DIR=schemas                    # Directory containing ontology YAML files
+MCP_TRANSPORT=stdio                    # stdio or http
+MCP_HOST=0.0.0.0                       # HTTP transport bind host
+MCP_PORT=8090                          # HTTP transport port
 ```
 
 ---

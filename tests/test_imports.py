@@ -34,3 +34,8 @@ def test_models_imports() -> None:
 
 def test_ingestion_imports() -> None:
     from src.ingestion import BaseIngestor  # noqa: F401
+
+
+def test_mcp_server_imports() -> None:
+    from src.mcp_server import create_mcp_server  # noqa: F401
+    from src.mcp_server.models import RetrievalResult, SchemaInfo  # noqa: F401
