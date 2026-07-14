@@ -544,6 +544,13 @@ poetry run pytest tests/ -v
 
 ---
 
+## TODO
+
+- [ ] Error handling, retry logic, and batch job checkpointing
+- [ ] Langfuse instrumentation
+
+---
+
 ## License
 
 This project is licensed under the Apache License 2.0 — see the [LICENSE](LICENSE) file for details.

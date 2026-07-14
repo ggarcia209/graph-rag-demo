@@ -416,16 +416,3 @@ For RAG queries about market impact, the system should:
 3. Calculate returns, volatility, and abnormal returns relative to a benchmark
 4. Include this quantitative data in the LLM context alongside the graph evidence
 
----
-
-## Open Design Questions
-
-> [!IMPORTANT]
-> The following decisions will affect the implementation significantly and should be resolved before building:
-
-1. **Graph Database Selection** — Neo4j, Amazon Neptune, or TigerGraph? Each has different strengths for temporal graphs and RAG integration.
-2. **Event Deduplication** — GDELT generates many records for the same real-world event. Do we deduplicate at ingestion time (cluster similar events into a canonical event) or keep the raw events and add `SAME_AS` edges?
-3. **Edge Weight Computation** — For statistical edges like `CORRELATED_WITH` and `LEADS`, should these be pre-computed on a schedule (batch) or computed on-demand at query time?
-4. **Commodity Granularity** — Should `Commodity` be a hierarchy (e.g., `Energy > Petroleum > Crude Oil > WTI`) or flat? A hierarchy enables more nuanced traversals but adds complexity.
-5. **Historical Depth** — How far back should the graph go? GDELT data is available from 1979, but maintaining statistical edges across 45+ years of market data is expensive.
-6. **Sector Node** — Should `Sector` be a separate entity type (instead of just a property on `Organization`), enabling direct `Event → AFFECTS → Sector` edges? This would simplify queries like "which sectors are most affected by trade wars?" without traversing through individual organizations.
